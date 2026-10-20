@@ -115,6 +115,8 @@ def parse_raw_metadata_columns(columns: dict[str, Any]) -> pd.DataFrame:
     # ---------------------------------------------------------
     columns[fn.ERROR_FLAG_RAW] = _to_float_arr(columns[fn.ERROR_FLAG_RAW]) != 0.0
     columns[fn.BAQ_MODE_RAW] = _enum_column(columns[fn.BAQ_MODE_RAW], BaqMode)
+    # Issue 13, section 3.2.5.3: BAQBLcode 31 represents 256 complex samples.
+    columns[fn.BAQ_BLOCK_LEN_RAW] = 8 * (pd.array(columns[fn.BAQ_BLOCK_LEN_RAW], dtype="UInt16") + 1)
     columns[fn.RANGE_DEC_RAW] = _enum_column(columns[fn.RANGE_DEC_RAW], RangeDecimation)
     columns[fn.RX_GAIN_RAW] = _to_float_arr(columns[fn.RX_GAIN_RAW]) * -0.5
     columns[fn.TX_RAMP_RATE_RAW] = _txprr(columns[fn.TX_RAMP_RATE_RAW])

@@ -67,27 +67,48 @@ def read_subcommed_data(df: pd.DataFrame) -> pd.DataFrame:
     Decode the sub-commutated satellite ephemeris data present in the file.
 
     Args:
-        df: Pandas dataframe containing the packet header information from the file.
+        df: Pandas dataframe containing parsed packet headers, including ancillary
+            word indices, ancillary words and Space Packet Count. Row labels do
+            not establish packet continuity.
 
     Returns:
-        A pandas dataframe containing the decoded sub-commutated acilliary data words.
+        A pandas dataframe containing the decoded sub-commutated ancillary data
+        words. Incomplete cycles and cycles with invalid or discontinuous packet
+        counts are skipped. Counts must advance by one modulo 2**32.
+
+    Raises:
+        ValueError: If Space Packet Count is absent, preventing verification of
+            cycle continuity.
     """
     if df.index.nlevels > 1:
         df = df.droplevel(fn.ACQUISITION_CHUNK_NUM_DECODED)
 
     index_col = fn.SUBCOM_ANC_DATA_WORD_INDEX_DECODED
     data_col = fn.SUBCOM_ANC_DATA_WORD_DECODED
-    start_indices = df.index[df[index_col] == 1]
+    counter_col = fn.SPACE_PACKET_COUNT_DECODED
+    if counter_col not in df.columns:
+        raise ValueError("Space Packet Count is required to verify ancillary cycle continuity")
+    # Packet labels can start above zero when callers pass a metadata slice.
+    start_positions = np.flatnonzero(df[index_col].eq(1).fillna(False).to_numpy(dtype=bool))
     output_dict_list = []
 
     dbl_type = np.dtype(np.float64).newbyteorder(">")
     sgl_type = np.dtype(np.float32).newbyteorder(">")
-    for i in start_indices:
+    for i in start_positions:
 
         # check our index is followed by a continuous block of 64
         if len(df) - i >= 64:
-            if all(df.loc[i : i + 63][index_col] == list(range(1, 65))):
-                d = df.loc[i : i + 63][data_col].tolist()
+            block = df.iloc[i : i + 64]
+            if block[index_col].eq(list(range(1, 65))).fillna(False).all():
+                # Issue 13, section 3.2.4.1: SPCT advances once per generated
+                # packet. Ancillary indices alone cannot detect loss of 64 words.
+                counter = block[counter_col]
+                if counter.isna().any() or not counter.between(0, 2**32 - 1).all():
+                    continue
+                counts = counter.to_numpy(dtype=np.int64)
+                if not counter.eq(counts).all() or np.any(np.diff(counts) % 2**32 != 1):
+                    continue
+                d = block[data_col].tolist()
                 x_bytes = struct.pack(">HHHH", d[0], d[1], d[2], d[3])
                 y_bytes = struct.pack(">HHHH", d[4], d[5], d[6], d[7])
                 z_bytes = struct.pack(">HHHH", d[8], d[9], d[10], d[11])
@@ -102,7 +123,8 @@ def read_subcommed_data(df: pd.DataFrame) -> pd.DataFrame:
                 y_vel = np.frombuffer(y_vel_bytes, dtype=sgl_type)[0]
                 z_vel = np.frombuffer(z_vel_bytes, dtype=sgl_type)[0]
 
-                pvt_t1 = d[18] * 2**24
+                # Table 3.2-7: the high byte of the first time word is unused.
+                pvt_t1 = (d[18] & 0xFF) * 2**24
                 pvt_t2 = d[19] * 2**8
                 pvt_t3 = d[20] * 2**-8
                 pvt_t4 = d[21] * 2**-24
@@ -134,7 +156,7 @@ def read_subcommed_data(df: pd.DataFrame) -> pd.DataFrame:
                 y_ang_rate = np.frombuffer(y_ang_rate_bytes, dtype=sgl_type)[0]
                 z_ang_rate = np.frombuffer(z_ang_rate_bytes, dtype=sgl_type)[0]
 
-                att_t1 = d[36] * 2**24
+                att_t1 = (d[36] & 0xFF) * 2**24
                 att_t2 = d[37] * 2**8
                 att_t3 = d[38] * 2**-8
                 att_t4 = d[39] * 2**-24
