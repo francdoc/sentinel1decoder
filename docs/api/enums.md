@@ -114,7 +114,7 @@ Each member exposes these properties:
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `sample_rate_hz` | `float` | Sample frequency after decimation in Hz. Computed as (L/M) × 4 × F_REF where (L, M) is the decimation ratio. Values range from ~15.1 MHz (RGDEC_10) to 100 MHz (RGDEC_0). |
+| `sample_rate_hz` | `float` | Sample frequency after decimation in Hz. Computed as (L/M) × 4 × F_REF where (L, M) is the decimation ratio. Values range from ~17.323718 MHz (RGDEC_10) to ~112.604167 MHz (RGDEC_0); these are sample rates, not filter bandwidths. |
 | `filter_bandwidth_hz` | `float` | 3 dB filter bandwidth in Hz (e.g. 100e6 for RGDEC_0, 15.1e6 for RGDEC_10). |
 | `filter_length_samples` | `int` | Filter length NF in samples (e.g. 28 for RGDEC_0/1, 120 for RGDEC_10). |
 | `decimation_ratio` | `tuple[int, int]` | (L, M) ratio; sample rate = (L/M) × (4 × F_REF). Examples: RGDEC_0 → (3, 4), RGDEC_6 → (1, 3), RGDEC_10 → (3, 26). |

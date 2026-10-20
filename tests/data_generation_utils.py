@@ -44,7 +44,7 @@ class PacketConfig:
     # Radar Configuration (27 bytes)
     error_flag: int = 0  # 1 bit
     baq_mode: int = 12  # 5 bits
-    baq_block_length: int = 128  # 1 byte
+    baq_block_length: int = 31  # 1-byte BAQBLcode: 8 * (31 + 1) = 256 complex samples
     # One unused byte here
     range_decimation: int = 0  # 1 byte
     rx_gain: int = 0  # 1 byte

@@ -148,6 +148,17 @@ def test_decode_secondary_header_raw_values() -> None:
     assert columns["TFINE"][0] == 0
 
 
+def test_baq_block_length_code_and_physical_length_are_distinct() -> None:
+    """The operational code is 31; parsed metadata reports 256 complex samples."""
+    config = PacketConfig(num_quads=1, baq_mode=0, baq_block_length=31)
+    packet = create_synthetic_level0_packet(config, 0)
+    columns, _ = decode_packet_headers(packet)
+
+    assert columns[fn.BAQ_BLOCK_LEN_RAW] == [31]
+    parsed = parse_raw_metadata_columns(columns)
+    assert parsed[fn.BAQ_BLOCK_LEN_DECODED].iloc[0] == 256
+
+
 def test_decode_secondary_header_absent_all_na() -> None:
     """Packet with secondary_header_flag=0 yields one row with secondary columns all NA."""
     config = PacketConfig(secondary_header_flag=0)
@@ -157,6 +168,7 @@ def test_decode_secondary_header_absent_all_na() -> None:
     assert len(df) == 1
     assert pd.isna(df["Rx Gain"].iloc[0])
     assert pd.isna(df["PRI"].iloc[0])
+    assert pd.isna(df["BAQ Block Length"].iloc[0])
 
 
 def test_decode_secondary_header_decoded_values_default() -> None:
@@ -180,7 +192,7 @@ def test_decode_secondary_header_decoded_values_default() -> None:
     assert row["PRI Count"] == 0
     assert row["Error Flag"] == False  # noqa: E712  # numpy bool vs Python bool
     assert row["BAQ Mode"].value == 12
-    assert row["BAQ Block Length"] == 128
+    assert row["BAQ Block Length"] == 256
     assert row["Range Decimation"].value == 0
     assert row["Rx Gain"] == 0
     assert row["Rank"] == 0
@@ -246,7 +258,7 @@ def test_decode_secondary_header_decoded_values_non_default() -> None:
 
     assert row["Error Flag"] == True  # noqa: E712
     assert row["BAQ Mode"].value == 13
-    assert row["BAQ Block Length"] == 64
+    assert row["BAQ Block Length"] == 8 * (64 + 1)
     assert row["Range Decimation"].value == 7
     assert row["Rx Gain"] == pytest.approx(-10.0)
 
